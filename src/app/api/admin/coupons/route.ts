@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { CouponRepository } from "@/core/repositories/coupon.repository";
