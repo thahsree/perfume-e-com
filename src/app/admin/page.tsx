@@ -32,6 +32,21 @@ export default function AdminDashboard() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [pendingReviews, setPendingReviews] = useState<any[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+
+  // Product CRUD State
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null); // null = create mode
+  const [deletingProduct, setDeletingProduct] = useState<any | null>(null);
+  const [productFormMsg, setProductFormMsg] = useState<string | null>(null);
+  // Product form fields
+  const emptyProductForm = {
+    name: "", slug: "", tagline: "", description: "", perfumer: "",
+    originCountry: "", fragranceFamily: "", intensity: "3",
+    moodTags: "", topNotes: "", heartNotes: "", baseNotes: "",
+    themeColor: "#C5A880", imageMain: "", active: true, limited: false,
+  };
+  const [productForm, setProductForm] = useState<any>(emptyProductForm);
 
   // Sub-selection details
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -47,7 +62,7 @@ export default function AdminDashboard() {
   const [couponFormMsg, setCouponFormMsg] = useState<string | null>(null);
 
   // Active section tabs
-  const [activeTab, setActiveTab] = useState<"orders" | "coupons" | "reviews" | "customers">("orders");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "coupons" | "reviews" | "customers">("products");
 
   // Load Dashboard Data
   async function loadDashboardData() {
@@ -80,6 +95,12 @@ export default function AdminDashboard() {
       if (customersRes.ok) {
         const customersData = await customersRes.json();
         setCustomers(customersData);
+      }
+
+      const productsRes = await fetch("/api/products?admin=true");
+      if (productsRes.ok) {
+        const productsData = await productsRes.json();
+        setProducts(productsData);
       }
     } catch (e) {
       console.error("Dashboard statistics loading failed:", e);
@@ -206,6 +227,83 @@ export default function AdminDashboard() {
       }
     } catch (e) {
       console.error("Failed to delete coupon:", e);
+    }
+  };
+
+  // ── Product CRUD Handlers ──────────────────────────────────────────
+  const openCreateProduct = () => {
+    setEditingProduct(null);
+    setProductForm(emptyProductForm);
+    setProductFormMsg(null);
+    setProductModalOpen(true);
+  };
+
+  const openEditProduct = (p: any) => {
+    setEditingProduct(p);
+    setProductForm({
+      name: p.name, slug: p.slug, tagline: p.tagline,
+      description: p.description, perfumer: p.perfumer,
+      originCountry: p.originCountry, fragranceFamily: p.fragranceFamily,
+      intensity: String(p.intensity),
+      moodTags: (p.moodTags || []).join(", "),
+      topNotes: (p.topNotes || []).join(", "),
+      heartNotes: (p.heartNotes || []).join(", "),
+      baseNotes: (p.baseNotes || []).join(", "),
+      themeColor: p.themeColor || "#C5A880",
+      imageMain: p.imageMain || "",
+      active: p.active, limited: p.limited,
+    });
+    setProductFormMsg(null);
+    setProductModalOpen(true);
+  };
+
+  const handleProductFormSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProductFormMsg(null);
+    const payload = {
+      ...productForm,
+      intensity: Number(productForm.intensity),
+      moodTags: productForm.moodTags.split(",").map((s: string) => s.trim()).filter(Boolean),
+      topNotes: productForm.topNotes.split(",").map((s: string) => s.trim()).filter(Boolean),
+      heartNotes: productForm.heartNotes.split(",").map((s: string) => s.trim()).filter(Boolean),
+      baseNotes: productForm.baseNotes.split(",").map((s: string) => s.trim()).filter(Boolean),
+      variants: editingProduct ? undefined : [],
+    };
+    try {
+      let res;
+      if (editingProduct) {
+        res = await fetch(`/api/products/${editingProduct.slug}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+      const data = await res.json();
+      if (res.ok) {
+        setProductModalOpen(false);
+        loadDashboardData();
+      } else {
+        setProductFormMsg(data.error || "Save failed.");
+      }
+    } catch {
+      setProductFormMsg("Network error.");
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+    try {
+      await fetch(`/api/products/${deletingProduct.slug}`, { method: "DELETE" });
+      setDeletingProduct(null);
+      loadDashboardData();
+    } catch {
+      console.error("Delete failed");
     }
   };
 
@@ -396,44 +494,95 @@ export default function AdminDashboard() {
         )}
 
         {/* Navigation Admin sections Tabs */}
-        <div className="flex gap-4 border-b border-border/20 pb-2 text-xs tracking-wider uppercase font-semibold">
-          <button
-            onClick={() => setActiveTab("orders")}
-            className={`pb-2 border-b-2 transition-all ${
-              activeTab === "orders" ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Orders Queue
-          </button>
-          <button
-            onClick={() => setActiveTab("coupons")}
-            className={`pb-2 border-b-2 transition-all ${
-              activeTab === "coupons" ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Coupons Panel
-          </button>
-          <button
-            onClick={() => setActiveTab("reviews")}
-            className={`pb-2 border-b-2 transition-all ${
-              activeTab === "reviews" ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Reviews Moderation ({pendingReviews.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("customers")}
-            className={`pb-2 border-b-2 transition-all ${
-              activeTab === "customers" ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Customer Database
-          </button>
+        <div className="flex flex-wrap gap-4 border-b border-border/20 pb-2 text-xs tracking-wider uppercase font-semibold">
+          {(["products", "orders", "coupons", "reviews", "customers"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-2 border-b-2 transition-all capitalize ${
+                activeTab === tab ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab === "reviews" ? `Reviews (${pendingReviews.length})` : tab.replace("orders", "Orders Queue").replace("coupons", "Coupons").replace("customers", "Customers").replace("products", "Products")}
+            </button>
+          ))}
         </div>
 
         {/* Tab content panels */}
         <div className="pt-4">
-          
+
+          {/* PRODUCTS CRUD */}
+          {activeTab === "products" && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">{products.length} fragrances in catalog</p>
+                <button
+                  onClick={openCreateProduct}
+                  className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground text-xs font-semibold uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <Plus size={14} />
+                  <span>New Product</span>
+                </button>
+              </div>
+
+              <div className="rounded-3xl border border-border/40 bg-black/10 dark:bg-white/[0.01] overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[700px]">
+                  <thead className="bg-black/30 border-b border-border/20 text-muted-foreground tracking-wider uppercase">
+                    <tr>
+                      <th className="p-4">Image</th>
+                      <th className="p-4">Name</th>
+                      <th className="p-4">Family</th>
+                      <th className="p-4">Intensity</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {products.map((p) => (
+                      <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-4">
+                          <div className="w-12 h-12 bg-black/20 rounded-lg flex items-center justify-center overflow-hidden border border-border/30">
+                            {p.imageMain && <img src={p.imageMain} alt={p.name} className="object-contain max-h-10 w-auto" />}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <p className="font-serif font-medium text-foreground">{p.name}</p>
+                          <p className="text-[10px] text-muted-foreground italic truncate max-w-[200px]">{p.tagline}</p>
+                        </td>
+                        <td className="p-4 text-muted-foreground">{p.fragranceFamily}</td>
+                        <td className="p-4 text-muted-foreground">{p.intensity}/5</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-semibold uppercase tracking-wider ${
+                            p.active ? "bg-emerald-950/40 text-emerald-300" : "bg-black/30 text-muted-foreground"
+                          }`}>
+                            {p.active ? "Active" : "Inactive"}
+                          </span>
+                          {p.limited && <span className="ml-1 px-2 py-0.5 rounded-md text-[9px] font-semibold uppercase tracking-wider bg-accent/20 text-accent">Ltd</span>}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => openEditProduct(p)}
+                              className="px-3 py-1.5 bg-white/5 border border-border hover:bg-white/10 text-[10px] font-semibold uppercase tracking-wider rounded-lg text-foreground transition-colors flex items-center gap-1"
+                            >
+                              <Eye size={11} /> Edit
+                            </button>
+                            <button
+                              onClick={() => setDeletingProduct(p)}
+                              className="p-1.5 text-muted-foreground hover:text-red-400 border border-border hover:border-red-400/40 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* ORDERS QUEUE */}
           {activeTab === "orders" && (
             <div className="rounded-3xl border border-border/40 bg-black/10 dark:bg-white/[0.01] overflow-hidden">
@@ -726,6 +875,174 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+
+        {/* ── PRODUCT CREATE / EDIT MODAL ─────────────────── */}
+        {productModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div onClick={() => setProductModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <div className="relative w-full max-w-2xl bg-card border border-border rounded-3xl p-8 max-h-[90vh] overflow-y-auto shadow-2xl font-sans text-xs space-y-5 no-scrollbar">
+              <div className="flex justify-between items-center border-b border-border/20 pb-4">
+                <h3 className="text-xl font-serif text-foreground font-light">
+                  {editingProduct ? `Edit: ${editingProduct.name}` : "New Fragrance"}
+                </h3>
+                <button onClick={() => setProductModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1">✕</button>
+              </div>
+
+              <form onSubmit={handleProductFormSave} className="space-y-4">
+                {/* Row: Name + Slug */}
+                <div className="grid grid-cols-2 gap-4">
+                  {["name", "slug"].map((field) => (
+                    <div key={field} className="space-y-1">
+                      <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">{field}</label>
+                      <input required type="text" value={productForm[field]}
+                        onChange={(e) => setProductForm({ ...productForm, [field]: e.target.value })}
+                        className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tagline */}
+                <div className="space-y-1">
+                  <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">Tagline</label>
+                  <input type="text" value={productForm.tagline}
+                    onChange={(e) => setProductForm({ ...productForm, tagline: e.target.value })}
+                    className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1">
+                  <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">Description</label>
+                  <textarea rows={3} value={productForm.description}
+                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                    className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground resize-none"
+                  />
+                </div>
+
+                {/* Row: Perfumer + Origin + Family */}
+                <div className="grid grid-cols-3 gap-3">
+                  {["perfumer", "originCountry", "fragranceFamily"].map((field) => (
+                    <div key={field} className="space-y-1">
+                      <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">{field.replace("originCountry","Origin").replace("fragranceFamily","Family")}</label>
+                      <input type="text" value={productForm[field]}
+                        onChange={(e) => setProductForm({ ...productForm, [field]: e.target.value })}
+                        className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Row: Intensity + Theme Color + Image URL */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">Intensity (1–5)</label>
+                    <select value={productForm.intensity}
+                      onChange={(e) => setProductForm({ ...productForm, intensity: e.target.value })}
+                      className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                    >
+                      {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">Theme Color</label>
+                    <div className="flex gap-2">
+                      <input type="color" value={productForm.themeColor}
+                        onChange={(e) => setProductForm({ ...productForm, themeColor: e.target.value })}
+                        className="w-10 h-10 rounded-lg border border-border bg-transparent cursor-pointer"
+                      />
+                      <input type="text" value={productForm.themeColor}
+                        onChange={(e) => setProductForm({ ...productForm, themeColor: e.target.value })}
+                        className="flex-1 p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">Image URL</label>
+                    <input type="text" value={productForm.imageMain}
+                      onChange={(e) => setProductForm({ ...productForm, imageMain: e.target.value })}
+                      className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                    />
+                  </div>
+                </div>
+
+                {/* Scent Notes — comma-separated */}
+                {(["topNotes", "heartNotes", "baseNotes", "moodTags"] as const).map((field) => (
+                  <div key={field} className="space-y-1">
+                    <label className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">
+                      {field.replace("topNotes","Top Notes").replace("heartNotes","Heart Notes").replace("baseNotes","Base Notes").replace("moodTags","Mood Tags")} <span className="normal-case text-muted-foreground/50">(comma-separated)</span>
+                    </label>
+                    <input type="text" value={productForm[field]}
+                      onChange={(e) => setProductForm({ ...productForm, [field]: e.target.value })}
+                      placeholder="e.g. bergamot, lemon, grapefruit"
+                      className="w-full p-2.5 bg-black/20 border border-border rounded-lg focus:outline-none focus:border-accent text-foreground"
+                    />
+                  </div>
+                ))}
+
+                {/* Toggles */}
+                <div className="flex gap-6 pt-2">
+                  {(["active", "limited"] as const).map((field) => (
+                    <label key={field} className="flex items-center gap-2 cursor-pointer">
+                      <button type="button"
+                        onClick={() => setProductForm({ ...productForm, [field]: !productForm[field] })}
+                        className={`w-9 h-5 rounded-full relative transition-colors ${ productForm[field] ? "bg-accent" : "bg-black/40 border border-border" }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${ productForm[field] ? "translate-x-4" : "translate-x-0.5" }`} />
+                      </button>
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{field}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {productFormMsg && (
+                  <p className="text-[10px] text-red-400 text-center">{productFormMsg}</p>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setProductModalOpen(false)}
+                    className="flex-1 py-3 border border-border text-muted-foreground text-xs uppercase tracking-widest rounded-lg hover:bg-white/5 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit"
+                    className="flex-1 py-3 bg-accent text-accent-foreground text-xs uppercase tracking-widest font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    {editingProduct ? "Save Changes" : "Create Fragrance"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── DELETE CONFIRMATION MODAL ────────────────────── */}
+        {deletingProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div onClick={() => setDeletingProduct(null)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <div className="relative w-full max-w-sm bg-card border border-border rounded-3xl p-8 shadow-2xl text-center space-y-5 font-sans">
+              <Trash2 size={28} className="text-red-400 mx-auto" />
+              <div>
+                <h3 className="text-lg font-serif text-foreground">Delete Fragrance?</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <span className="text-foreground font-semibold">{deletingProduct.name}</span> will be permanently removed from the catalog.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setDeletingProduct(null)}
+                  className="flex-1 py-3 border border-border text-muted-foreground text-xs uppercase tracking-widest rounded-lg hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button onClick={handleDeleteProduct}
+                  className="flex-1 py-3 bg-red-600 text-white text-xs uppercase tracking-widest font-semibold rounded-lg hover:opacity-90"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Customer Detail modal views */}
         {viewingCustomerModal && selectedCustomer && (
