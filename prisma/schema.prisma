@@ -1,0 +1,133 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         String     @default("USER") // USER, ADMIN
+  image        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  reviews      Review[]
+  wishlists    Wishlist[]
+}
+
+model Product {
+  id              String           @id @default(uuid())
+  name            String
+  slug            String           @unique
+  tagline         String
+  description     String
+  perfumer        String
+  originCountry   String
+  fragranceFamily String           // Woody, Floral, Fresh, Oriental
+  intensity       Int              // 1 to 5
+  moodTags        String           // Comma-separated tags (e.g. "Mysterious,Warm,Sophisticated")
+  topNotes        String           // Comma-separated
+  heartNotes      String           // Comma-separated
+  baseNotes       String           // Comma-separated
+  themeColor      String           // Hex or TailWind class color for custom visual styling
+  imageMain       String           // Main bottle image path
+  imageAlt1       String?          // Mood board image
+  imageAlt2       String?          // Raw ingredients image
+  active          Boolean          @default(true)
+  limited         Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  variants        ProductVariant[]
+  reviews         Review[]
+  wishlists       Wishlist[]
+}
+
+model ProductVariant {
+  id         String      @id @default(uuid())
+  productId  String
+  size       String      // "30ml", "50ml", "100ml"
+  price      Float
+  stockLevel Int
+  sku        String      @unique
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+model Order {
+  id             String      @id @default(uuid())
+  userId         String?
+  email          String
+  name           String
+  status         String      @default("placed") // placed, confirmed, shipped, delivered
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  state          String
+  zipCode        String
+  country        String
+  shippingMethod String      // "standard", "express"
+  shippingCost   Float       @default(0.0)
+  couponCode     String?
+  discountAmount Float       @default(0.0)
+  totalAmount    Float
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+}
+
+model OrderItem {
+  id               String         @id @default(uuid())
+  orderId          String
+  productVariantId String
+  quantity         Int
+  price            Float          // Price at time of purchase
+  productName      String         // Snapshot name for invoicing
+  productSize      String         // Snapshot size
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model Coupon {
+  id           String    @id @default(uuid())
+  code         String    @unique
+  type         String    // "PERCENTAGE", "FIXED", "FREE_SHIPPING"
+  value        Float     // Value of discount (e.g. 20 for 20%, 500 for $500 off)
+  minThreshold Float     @default(0.0) // Minimum order total required
+  usageLimit   Int?      // Null means unlimited
+  usageCount   Int       @default(0)
+  expiryDate   DateTime?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+}
+
+model Review {
+  id               String   @id @default(uuid())
+  productId        String
+  userId           String?
+  userName         String
+  rating           Int      // 1 to 5
+  comment          String
+  verifiedPurchase Boolean  @default(false)
+  approved         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}

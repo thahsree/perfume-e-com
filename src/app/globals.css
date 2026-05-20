@@ -3,25 +3,118 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Default: Dark mode values */
+  --background: 7 7 7;
+  --foreground: 245 245 243;
+  --card: 18 18 18;
+  --card-foreground: 245 245 243;
+  --border: 34 34 34;
+  --accent: 197 168 128;
+  --accent-foreground: 7 7 7;
+  --muted: 128 128 128;
+  --muted-foreground: 204 204 204;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root.light {
+  /* Light mode values */
+  --background: 248 248 245;
+  --foreground: 26 26 26;
+  --card: 255 255 255;
+  --card-foreground: 26 26 26;
+  --border: 229 229 223;
+  --accent: 154 126 86;
+  --accent-foreground: 248 248 245;
+  --muted: 128 128 128;
+  --muted-foreground: 102 102 102;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground));
+  background-color: rgb(var(--background));
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.5s ease, color 0.5s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Custom editorial layout details */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif), serif;
+  letter-spacing: -0.02em;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgb(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--accent));
+}
+
+/* Horizontal scroll indicators without default scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Parallax layout and custom effects */
+.parallax-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  perspective: 10px;
+}
+
+.parallax-layer {
+  transform-style: preserve-3d;
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: rgba(var(--background) / 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(var(--border) / 0.5);
+}
+
+/* Luxury button transitions */
+.btn-editorial {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-editorial::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-editorial:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
 }
